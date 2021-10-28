@@ -622,6 +622,7 @@ module ActiveRecord
       #
       # See TableDefinition#column for details of the options you can use.
       def column(column_name, type, index: nil, **options)
+        return if options[:if_not_exists] == true && column_exists?(column_name)
         @base.add_column(name, column_name, type, **options)
         if index
           index_options = index.is_a?(Hash) ? index : {}
@@ -647,6 +648,7 @@ module ActiveRecord
       #
       # See {connection.add_index}[rdoc-ref:SchemaStatements#add_index] for details of the options you can use.
       def index(column_name, **options)
+        return if options[:if_not_exists] == true && index_exists?(column_name)
         @base.add_index(name, column_name, **options)
       end
 
@@ -658,7 +660,7 @@ module ActiveRecord
       #
       # See {connection.index_exists?}[rdoc-ref:SchemaStatements#index_exists?]
       def index_exists?(column_name, options = {})
-        @base.index_exists?(name, column_name, options)
+        @base.index_exists?(name, column_name, **options)
       end
 
       # Renames the given index on the table.
@@ -686,6 +688,7 @@ module ActiveRecord
       #
       # See TableDefinition#column for details of the options you can use.
       def change(column_name, type, **options)
+        return if options[:if_exists] == true && !column_exists?(column_name)
         @base.change_column(name, column_name, type, **options)
       end
 
@@ -717,6 +720,10 @@ module ActiveRecord
       #
       # See {connection.remove_columns}[rdoc-ref:SchemaStatements#remove_columns]
       def remove(*column_names, **options)
+        if options[:if_exists] == true
+          column_names.select! { |column_name| column_exists?(column_name) }
+        end
+        return if column_names.empty?
         @base.remove_columns(name, *column_names, **options)
       end
 
@@ -729,6 +736,7 @@ module ActiveRecord
       #
       # See {connection.remove_index}[rdoc-ref:SchemaStatements#remove_index]
       def remove_index(column_name = nil, **options)
+        return if options[:if_exists] == true && !index_exists?(column_name)
         @base.remove_index(name, column_name, **options)
       end
 
@@ -793,6 +801,9 @@ module ActiveRecord
       #
       # See {connection.remove_foreign_key}[rdoc-ref:SchemaStatements#remove_foreign_key]
       def remove_foreign_key(*args, **options)
+        return unless @base.supports_foreign_keys?
+        from_table, to_table = args
+        return if options[:if_exists] == true && !foreign_key_exists?(from_table, to_table, **options)
         @base.remove_foreign_key(name, *args, **options)
       end
 

@@ -1375,6 +1375,48 @@ if ActiveRecord::Base.connection.supports_bulk_alter?
       assert index(:username_index).unique
     end
 
+    def test_bulk_operation_if_exists
+      with_bulk_change_table do |t|
+        t.string :name
+      end
+
+      with_bulk_change_table do |t|
+        assert t.column_exists?(:name)
+        assert_not t.column_exists?(:nickname)
+      end
+
+      with_bulk_change_table do |t|
+        t.remove :name, if_exists: true
+        t.remove :nickname, if_exists: true
+      end
+
+      with_bulk_change_table do |t|
+        assert_not t.column_exists?(:name)
+        assert_not t.column_exists?(:nickname)
+      end
+    end
+
+    def test_bulk_operation_if_not_exists
+      with_bulk_change_table do |t|
+        t.string :name
+      end
+
+      with_bulk_change_table do |t|
+        assert t.column_exists?(:name)
+        assert_not t.column_exists?(:nickname)
+      end
+
+      with_bulk_change_table do |t|
+        t.string :name, if_not_exists: true
+        t.string :nickname, if_not_exists: true
+      end
+
+      with_bulk_change_table do |t|
+        assert t.column_exists?(:name)
+        assert t.column_exists?(:nickname)
+      end
+    end
+
     private
       def with_bulk_change_table(&block)
         # Reset columns/indexes cache as we're changing the table
